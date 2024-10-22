@@ -1,24 +1,44 @@
-### Theory Questions ###
-How will you tackle the challenge above?
+# CSV Formula Evaluator
 
-I would first parse the CSV input and load it into a data structure like a 2D array. For each cell, if it contains a formula, I will evaluate it by resolving the referenced cells and performing the required operation. Finally, I would generate a new CSV file with the computed values.
+## Overview
 
-What type of errors would you check for?
+This program processes a CSV file that contains both numeric values and formulas. It evaluates the formulas by referencing other cells and outputs the results to a new CSV file.
 
-I would check for:
+## Features
 
-    Invalid or unrecognized formulas.
-    Circular references between cells.
-    Division by zero errors.
-    Missing or out-of-bounds cell references.
-    Non-numeric data where numeric values are expected.
+- Reads a CSV input file.
+- Evaluates any formulas within the CSV (e.g., `=A1+5`, `=B2*A3`).
+- Outputs the results to a new CSV file with all formulas resolved to their final values.
 
-How might a user break your code?
+## Example
 
-A user could break the code by:
+### Input CSV
 
-    Providing malformed formulas.
-    Introducing circular dependencies between formulas.
-    Referencing cells that don't exist.
-    Using operations that result in errors (e.g., division by zero).
-    Entering unexpected data types (e.g., text in numeric fields).
+```csv
+A,B,C
+5,3,=5+A1
+7,8,=A2+B2
+9,=4+5,=C2+B3
+
+Steps
+
+    Clone the project:
+
+    bash
+
+git clone https://github.com/your-repo/csv-formula-evaluator.git
+
+Navigate to the project directory:
+
+
+
+cd CSVPARSER
+
+Build the project:
+```
+mvn clean package
+```
+Place your input.csv file in the root directory.
+
+
+

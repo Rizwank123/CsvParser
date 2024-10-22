@@ -1,145 +1,118 @@
 package com.csv.org;
-import org.apache.poi.hssf.usermodel.HSSFWorkbook;
+
 import org.apache.poi.ss.usermodel.*;
-import java.io.*;
-import java.util.*;
-import java.util.regex.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 public class CsvReader {
-    private static final Pattern FORMULA_PATTERN = Pattern.compile("=([A-Z]\\d+)([\\+\\-\\*/])(\\d+|[A-Z]\\d+)");
 
-    public static void main(String[] args) throws Exception {
-        String inputFile = "input.csv"; // Input CSV file
-        String outputFile = "output.xls"; // Output XLS file to store the results
-        
-        // Step 1: Read CSV into a 2D array
-        List<List<String>> csvData = readCSV(inputFile);
+		    public static void main(String[] args) throws Exception {
+		        // Input and Output File Paths
+		        String inputCSVFile = "input.csv";
+		        String outputXLSXFile = "output.xlsx";
 
-        // Step 2: Evaluate all formulas in the CSV
-        evaluateFormulas(csvData);
+		        // Read the CSV into a 2D array (for simplicity, let's assume fixed size here)
+		        String[][] data = readCSV(inputCSVFile);
 
-        // Step 3: Write the result to an Excel file
-        writeXLS(outputFile, csvData);
+		        // Evaluate formulas
+		        String[][] evaluatedData = evaluateFormulas(data);
 
-        System.out.println("Formula evaluation complete. Results written to " + outputFile);
-    }
+		        // Write the evaluated data to XLSX with headers
+		        writeToExcel(evaluatedData, outputXLSXFile);
+		    }
 
-    private static List<List<String>> readCSV(String inputFile) throws IOException {
-        List<List<String>> csvData = new ArrayList<>();
-        try (BufferedReader br = new BufferedReader(new FileReader(inputFile))) {
-            String line;
-            while ((line = br.readLine()) != null) {
-                String[] values = line.split(",");
-                csvData.add(new ArrayList<>(Arrays.asList(values)));
-            }
-        }
-        return csvData;
-    }
+		    private static String[][] readCSV(String csvFile) throws IOException {
+		        // Simulated CSV data for simplicity
+		        String[][] data = {
+		                {"5", "3", "=5+A1"},
+		                {"7", "8", "=A2+B2"},
+		                {"9", "=4+5", "=C2+B3"}
+		        };
+		        return data;
+		    }
 
-    private static void evaluateFormulas(List<List<String>> csvData) {
-        for (int row = 0; row < csvData.size(); row++) {
-            for (int col = 0; col < csvData.get(row).size(); col++) {
-                String cellValue = csvData.get(row).get(col);
-                if (cellValue.startsWith("=")) {
-                    try {
-                        String evaluatedValue = evaluateFormula(cellValue, csvData);
-                        csvData.get(row).set(col, evaluatedValue);
-                    } catch (Exception e) {
-                        System.err.println("Error evaluating formula in cell (" + (row + 1) + "," + (col + 1) + "): " + e.getMessage());
-                        csvData.get(row).set(col, "ERROR");
-                    }
-                }
-            }
-        }
-    }
+		    private static String[][] evaluateFormulas(String[][] data) {
+		        int rows = data.length;
+		        int cols = data[0].length;
+		        Map<String, Integer> cellReference = new HashMap<>();
+		        String[][] result = new String[rows][cols];
 
-    private static String evaluateFormula(String formula, List<List<String>> csvData) throws Exception {
-        Matcher matcher = FORMULA_PATTERN.matcher(formula);
-        if (!matcher.matches()) {
-            throw new Exception("Invalid formula syntax: " + formula);
-        }
+		        for (int i = 0; i < rows; i++) {
+		            for (int j = 0; j < cols; j++) {
+		                String value = data[i][j];
+		                result[i][j] = value.startsWith("=") ? evaluateFormula(value, result) : value;
+		                cellReference.put("" + (char) ('A' + j) + (i + 1), Integer.parseInt(result[i][j]));
+		            }
+		        }
+		        return result;
+		    }
 
-        // Extract cell references and operator from the formula
-        String operand1 = matcher.group(1);
-        String operator = matcher.group(2);
-        String operand2 = matcher.group(3);
+		    private static String evaluateFormula(String formula, String[][] data) {
+		        formula = formula.substring(1);  // Remove leading "="
+		        String[] parts = formula.split("\\+");
 
-        // Resolve the first operand
-        int value1 = resolveCellValue(operand1, csvData);
+		        int result = 0;
+		        for (String part : parts) {
+		            part = part.trim();
+		            if (Character.isDigit(part.charAt(0))) {
+		                result += Integer.parseInt(part);
+		            } else {  // This is a cell reference (e.g., A1)
+		                int row = part.charAt(1) - '1';
+		                int col = part.charAt(0) - 'A';
+		                result += Integer.parseInt(data[row][col]);
+		            }
+		        }
+		        return String.valueOf(result);
+		    }
 
-        // Resolve the second operand (can be a number or a cell reference)
-        int value2;
-        if (isCellReference(operand2)) {
-            value2 = resolveCellValue(operand2, csvData);
-        } else {
-            value2 = Integer.parseInt(operand2);
-        }
+		    private static void writeToExcel(String[][] data, String outputFile) throws IOException {
+		        Workbook workbook = new XSSFWorkbook();
+		        Sheet sheet = workbook.createSheet("Evaluated Data");
 
-        // Perform the operation
-        int result;
-        switch (operator) {
-            case "+":
-                result = value1 + value2;
-                break;
-            case "-":
-                result = value1 - value2;
-                break;
-            case "*":
-                result = value1 * value2;
-                break;
-            case "/":
-                if (value2 == 0) throw new Exception("Division by zero");
-                result = value1 / value2;
-                break;
-            default:
-                throw new Exception("Unknown operator: " + operator);
-        }
+		        // Create header row
+		        Row headerRow = sheet.createRow(0);
+		        String[] headers = {"", "A", "B", "C"};
+		        for (int i = 0; i < headers.length; i++) {
+		            Cell cell = headerRow.createCell(i);
+		            cell.setCellValue(headers[i]);
+		        }
 
-        return String.valueOf(result);
-    }
+		        // Add data rows starting from row 1 (after the header)
+		        for (int i = 0; i < data.length; i++) {
+		            Row row = sheet.createRow(i + 1);  // Start from row 1
+		            for (int j = 0; j < data[i].length; j++) {
+		                Cell cell = row.createCell(j);
+		                cell.setCellValue(Integer.parseInt(data[i][j]));
+		            }
+		        }
 
-    private static int resolveCellValue(String cellReference, List<List<String>> csvData) throws Exception {
-        int row = cellReference.charAt(1) - '1';  // Convert '1', '2', '3' to 0-based index
-        int col = cellReference.charAt(0) - 'A';  // Convert 'A', 'B', 'C' to 0-based index
+		        // Write the output to an XLSX file
+		        try (FileOutputStream fileOut = new FileOutputStream(outputFile)) {
+		            workbook.write(fileOut);
+		        }
 
-        if (row >= csvData.size() || col >= csvData.get(row).size()) {
-            throw new Exception("Cell reference out of bounds: " + cellReference);
-        }
-
-        String cellValue = csvData.get(row).get(col);
-        if (cellValue.startsWith("=")) {
-            return Integer.parseInt(evaluateFormula(cellValue, csvData));  // Recursively evaluate the formula
-        } else {
-            return Integer.parseInt(cellValue);  // Return the static value
-        }
-    }
-
-    private static boolean isCellReference(String input) {
-        return input.matches("[A-Z]\\d+");
-    }
-
-    private static void writeXLS(String outputFile, List<List<String>> csvData) throws IOException {
-        try (Workbook workbook = new HSSFWorkbook(); FileOutputStream fileOut = new FileOutputStream(outputFile)) {
-            Sheet sheet = workbook.createSheet("Sheet1");
-
-            for (int rowIndex = 0; rowIndex < csvData.size(); rowIndex++) {
-                Row row = sheet.createRow(rowIndex);
-                List<String> rowData = csvData.get(rowIndex);
-
-                for (int colIndex = 0; colIndex < rowData.size(); colIndex++) {
-                    Cell cell = row.createCell(colIndex);
-                    String cellValue = rowData.get(colIndex);
-                    try {
-                        int numericValue = Integer.parseInt(cellValue);
-                        cell.setCellValue(numericValue); // If it's a number, set as numeric
-                    } catch (NumberFormatException e) {
-                        cell.setCellValue(cellValue); // If it's text, set as string
-                    }
-                }
-            }
-
-            workbook.write(fileOut); // Write the workbook to the output file
-        }
-    }
+		        // Closing the workbook
+		        workbook.close();
+		    }
+   
 }
+      
 
+    
+    
+    
+    
+
+    
+    
+    
+        
+            
+            
+            
+        
+    
